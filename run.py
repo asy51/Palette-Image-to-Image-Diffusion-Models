@@ -10,6 +10,9 @@ import core.util as Util
 from data import define_dataloader
 from models import create_model, define_network, define_loss, define_metric
 
+import nibabel
+nibabel.imageglobals.logger.setLevel(40)
+
 def main_worker(gpu, ngpus_per_node, opt):
     """  threads running on each GPU """
     if 'local_rank' not in opt:

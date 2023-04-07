@@ -7,6 +7,9 @@ import numpy as np
 
 from .util.mask import (bbox2mask, brush_stroke_mask, get_irregular_mask, random_bbox, random_cropping_bbox)
 
+from ptoa.data.knee_monai import SliceDataset, KneeDataset
+import monai.transforms as MT
+
 IMG_EXTENSIONS = [
     '.jpg', '.JPG', '.jpeg', '.JPEG',
     '.png', '.PNG', '.ppm', '.PPM', '.bmp', '.BMP',
@@ -174,3 +177,65 @@ class ColorizationDataset(data.Dataset):
         return len(self.flist)
 
 
+class DESS2TSEDataset(SliceDataset):
+    def __init__(self, img_size=256, **kwargs):
+        kds = KneeDataset()
+        kds.knees = [knee for knee in kds.knees if all(knee.path[k] for k in ['IMG_TSE', 'DESS2TSE'])]
+        super().__init__(kds, img_size=img_size)
+        
+    def __getitem__(self, ndx):
+        slc = super().__getitem__(ndx)
+        ret = {}
+        ret['gt_image'] = slc['IMG_TSE'] * 2 - 1
+        ret['cond_image'] = slc['DESS2TSE'] * 2 - 1
+        ret['path'] = f"knee{slc['knee_ndx']:04d}_slc{slc['slc_ndx']:02d}.png"
+        return ret
+
+class InpaintTSEDataset(SliceDataset):
+    def __init__(self, img_size=256, mask_config={}, **kwargs):
+        kds = KneeDataset()
+        kds.knees = [knee for knee in kds.knees if all(knee.path[k] for k in ['IMG_TSE', 'DESS2TSE'])][:5]
+        super().__init__(kds, img_size=img_size)
+
+        self.mask_config = mask_config
+        self.mask_mode = self.mask_config['mask_mode']
+        self.image_size = (img_size, img_size)
+
+    def get_mask(self):
+        if self.mask_mode == 'bbox':
+            mask = bbox2mask(self.image_size, random_bbox())
+        elif self.mask_mode == 'center':
+            h, w = self.image_size
+            mask = bbox2mask(self.image_size, (h//4, w//4, h//2, w//2))
+        elif self.mask_mode == 'irregular':
+            mask = get_irregular_mask(self.image_size)
+        elif self.mask_mode == 'free_form':
+            mask = brush_stroke_mask(self.image_size)
+        elif self.mask_mode == 'hybrid':
+            regular_mask = bbox2mask(self.image_size, random_bbox())
+            irregular_mask = brush_stroke_mask(self.image_size, )
+            mask = regular_mask | irregular_mask
+        elif self.mask_mode == 'file':
+            pass
+        else:
+            raise NotImplementedError(
+                f'Mask mode {self.mask_mode} has not been implemented.')
+        return torch.from_numpy(mask).permute(2,0,1)
+    
+    def __getitem__(self, ndx):
+        slc = super().__getitem__(ndx)
+        ret = {}
+        img = slc['IMG_TSE'] * 2 - 1
+        mask = self.get_mask()
+        # mask = torch.zeros([1, *self.image_size])
+        # mask[self.image_size[0]//4:self.image_size[0]*3//4,
+        #      self.image_size[1]//4:self.image_size[1]*3//4] = 1
+        cond_image = img*(1. - mask) + mask*torch.randn_like(img)
+        mask_img = img*(1. - mask) + mask
+
+        ret['gt_image'] = img
+        ret['cond_image'] = cond_image
+        ret['mask_image'] = mask_img
+        ret['mask'] = mask
+        ret['path'] = f"knee{slc['knee_ndx']:04d}_slc{slc['slc_ndx']:02d}.png"
+        return ret
