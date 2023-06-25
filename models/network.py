@@ -5,6 +5,7 @@ from functools import partial
 import numpy as np
 from tqdm import tqdm
 from core.base_network import BaseNetwork
+
 class Network(BaseNetwork):
     def __init__(self, unet, beta_schedule, module_name='sr3', **kwargs):
         super(Network, self).__init__(**kwargs)
@@ -19,9 +20,10 @@ class Network(BaseNetwork):
     def set_loss(self, loss_fn):
         self.loss_fn = loss_fn
 
-    def set_new_noise_schedule(self, device=torch.device('cuda'), phase='train'):
+    def set_new_noise_schedule(self, betas=None, device=torch.device('cuda'), phase='train'):
         to_torch = partial(torch.tensor, dtype=torch.float32, device=device)
-        betas = make_beta_schedule(**self.beta_schedule[phase])
+        if betas is None:
+            betas = make_beta_schedule(**self.beta_schedule[phase])
         betas = betas.detach().cpu().numpy() if isinstance(
             betas, torch.Tensor) else betas
         alphas = 1. - betas
@@ -177,5 +179,11 @@ def make_beta_schedule(schedule, n_timestep, linear_start=1e-6, linear_end=1e-2,
     else:
         raise NotImplementedError(schedule)
     return betas
+
+class MyNetwork(Network):
+    def __init__(self, unet, beta_schedule, **kwargs):
+        super(Network, self).__init__(**kwargs)
+        self.denoise_fn = unet
+        self.beta_schedule = beta_schedule
 
 

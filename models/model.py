@@ -219,3 +219,15 @@ class Palette(BaseModel):
         if self.ema_scheduler is not None:
             self.save_network(network=self.netG_EMA, network_label=netG_label+'_ema')
         self.save_training_state()
+
+class MyPalette(Palette):
+    def __init__(self, net, loss_fn, optim, betas, **kwargs):
+        BaseModel.__init__(**kwargs)
+        self.loss_fn = loss_fn
+        self.netG = net
+        self.optG = optim
+        self.optimizers=[self.optG]
+        self.netG.set_loss(self.loss_fn)
+        self.netG.set_new_noise_schedule(betas)
+        self.sample_num=10
+        self.task = 'colorization'

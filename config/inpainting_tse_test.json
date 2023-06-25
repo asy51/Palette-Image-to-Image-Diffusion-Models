@@ -1,6 +1,6 @@
 {
-    "name": "dess2tse",
-    "gpu_ids": [2],
+    "name": "inpainting_tse",
+    "gpu_ids": [0],
     "seed" : -1,
     "finetune_norm": false,
 
@@ -10,13 +10,19 @@
         "tb_logger": "tb_logger",
         "results": "results",
         "checkpoint": "checkpoint",
-        "resume_state": null
+        "resume_state": "experiments/train_inpainting_tse_230328_114820/checkpoint/220"
+
     },
 
     "datasets": {
         "train": { 
             "which_dataset": { 
-                "name": ["data.dataset", "DESS2TSEDataset"]
+                "name": ["data.dataset", "InpaintTSEDataset"],
+                "args":{
+                    "mask_config": {
+                        "mask_mode": "hybrid"
+                    }
+                } 
             },
             "dataloader":{
                 "validation_split": 2,
@@ -38,7 +44,12 @@
         },
         "test": { 
             "which_dataset": {
-                "name": "DESS2TSEDataset"
+                "name": "InpaintTSEDataset",
+                "args":{
+                    "mask_config": {
+                        "mask_mode": "center"
+                    }
+                }
             },
             "dataloader":{
                 "args":{
@@ -55,7 +66,7 @@
             "name": ["models.model", "Palette"],
             "args": {
                 "sample_num": 8,
-                "task": "colorization",
+                "task": "inpainting",
                 "ema_scheduler": {
                     "ema_start": 1,
                     "ema_iter": 1,
@@ -96,18 +107,15 @@
                         "train": {
                             "schedule": "linear",
                             "n_timestep": 2000,
+                           
                             "linear_start": 1e-6,
                             "linear_end": 0.01
                         },
                         "test": {
                             "schedule": "linear",
-                            "n_timestep": 2000,
-                            "linear_start": 1e-6,
-                            "linear_end": 0.01
-                            // "schedule": "linear",
-                            // "n_timestep": 1000,
-                            // "linear_start": 1e-4,
-                            // "linear_end": 0.09
+                            "n_timestep": 1000,
+                            "linear_start": 1e-4,
+                            "linear_end": 0.09
                         }
                     }
                 }
