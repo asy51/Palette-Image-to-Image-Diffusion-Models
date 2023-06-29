@@ -224,7 +224,6 @@ class InpaintTSEDataset(SliceDataset):
     
     def __getitem__(self, ndx):
         slc = super().__getitem__(ndx)
-        ret = {}
         img = slc['IMG_TSE'] * 2 - 1
         mask = self.get_mask()
         # mask = torch.zeros([1, *self.image_size])
@@ -233,9 +232,9 @@ class InpaintTSEDataset(SliceDataset):
         cond_image = img*(1. - mask) + mask*torch.randn_like(img)
         mask_img = img*(1. - mask) + mask
 
-        ret['gt_image'] = img
-        ret['cond_image'] = cond_image
-        ret['mask_image'] = mask_img
-        ret['mask'] = mask
-        ret['path'] = f"knee{slc['knee_ndx']:04d}_slc{slc['slc_ndx']:02d}.png"
-        return ret
+        slc['gt_image'] = img
+        slc['cond_image'] = cond_image
+        slc['mask_image'] = mask_img
+        slc['mask'] = mask
+        slc['path'] = f"knee{slc['knee_ndx']:04d}_slc{slc['slc_ndx']:02d}.png"
+        return slc
