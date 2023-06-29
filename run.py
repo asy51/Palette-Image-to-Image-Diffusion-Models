@@ -3,6 +3,7 @@ import os
 import warnings
 import torch
 import torch.multiprocessing as mp
+import cv2
 
 from core.logger import VisualWriter, InfoLogger
 import core.praser as Praser

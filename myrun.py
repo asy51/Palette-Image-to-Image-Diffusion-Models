@@ -13,6 +13,7 @@ import random
 from datetime import datetime
 import os
 
+from data.dataset import FastSliceDataset
 from models.network import MyNetwork
 from models.guided_diffusion_modules.unet import UNet
 from models.model import Palette, MyPalette
@@ -20,8 +21,8 @@ from ptoa.data.knee_monai import SliceDataset, KneeDataset
 
 CONFIG = {
     'img_size': 256,
-    # 'task': 'bone_premask',
-    'task': 'inpaint_bone', # 'no_premask', 'inpaint_roi'  'bone_premask'
+    'task': 'inpaint_fastmri',
+    # 'task': 'inpaint_bone', # 'no_premask', 'inpaint_roi'  'bone_premask'
     'schedule': 'linear', # 'linear', 'warmup10', 'warmup50', 'const', 'jsd' 'quad'
     'schedule_start': 1e-6,
     'schedule_end': 1e-2,
@@ -34,29 +35,6 @@ CONFIG = {
     'n_epochs': 1000,
 }
 
-class DESS2TSEDataset(SliceDataset):
-    def __init__(self, kds=None, bmel=False, count=None, config=CONFIG, **kwargs):
-        if kds is None:
-            kds = KneeDataset()
-            kds.knees = [knee for knee in kds.knees if all(knee.path[k] for k in ['IMG_TSE', 'DESS2TSE', 'BONE_TSE'])]
-            if bmel:
-                kds.knees = [knee for knee in kds.knees if knee.path['BMELT'] is not None]
-            else:
-                kds.knees = [knee for knee in kds.knees if knee.path['BMELT'] is None]
-            if count:
-                random.shuffle(kds.knees)
-                kds.knees = kds.knees[:count]
-        super().__init__(kds, img_size=config['img_size'], bonemask=config['task'] == 'bone_premask')
-        
-    def __getitem__(self, ndx):
-        slc = super().__getitem__(ndx)
-        ret = {}
-        ret['tse'] = slc['IMG_TSE']
-        ret['dess'] = slc['DESS2TSE']
-        ret['bone'] = slc['BONE_TSE']
-        ret['id'] = slc['id']
-        return ret
-    
 def exists(x):
     return x is not None
 
@@ -238,11 +216,11 @@ class Colorize(nn.Module):
         return loss
 
     def set_input(self, batch):
-        self.x = batch['dess'].to(self.device)
-        self.y = batch['tse'].to(self.device)
+        self.x = batch['mask_image'].to(self.device)
+        self.y = batch['gt_image'].to(self.device)
         # if self.config['task'] == 'inpaint_bone', 'inpaint_roi':...
-        self.mask = (batch['bone'] > 0).to(torch.float32).to(self.device)
-        self.id = batch['id']
+        self.mask = batch['mask'].to(self.device)
+        self.id = batch['path']
 
     def train_step(self):
         self.net.train()
@@ -265,7 +243,7 @@ if __name__ == '__main__':
     savepath = f"./runs_{datetime.strftime(datetime.now(), '%y%m%d_%H%M')}_{CONFIG['task']}/"
     os.makedirs(savepath, mode=0o755, exist_ok=True)
 
-    ds = DESS2TSEDataset()
+    ds = FastSliceDataset()
     dl = DataLoader(ds, batch_size=CONFIG['batch_size'], shuffle=True, drop_last=True)
     c = Colorize(device='cuda', config=CONFIG)
 

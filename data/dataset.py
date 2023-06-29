@@ -8,6 +8,7 @@ import torch
 import numpy as np
 
 from .util.mask import (bbox2mask, brush_stroke_mask, get_irregular_mask, random_bbox, random_cropping_bbox)
+# from .util.mask import brush_stroke_mask, get_irregular_mask
 
 import monai.transforms as MT
 import einops
@@ -311,7 +312,7 @@ class FastSliceDataset(torch.utils.data.Dataset):
                          random_bbox(
                              img_shape=self.img_size,
                              max_bbox_shape=(80, 80),
-                             max_bbox_delta=50,
+                             max_bbox_delta=60,
                              min_margin=50,
                          )
                         )
