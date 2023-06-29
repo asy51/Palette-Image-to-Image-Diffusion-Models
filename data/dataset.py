@@ -4,6 +4,7 @@ from PIL import Image
 import os
 import torch
 import numpy as np
+import random
 
 from .util.mask import (bbox2mask, brush_stroke_mask, get_irregular_mask, random_bbox, random_cropping_bbox)
 
@@ -178,21 +179,53 @@ class ColorizationDataset(data.Dataset):
 
 
 class DESS2TSEDataset(SliceDataset):
-    def __init__(self, kds=None, img_size=256, **kwargs):
+    def __init__(self, config, kds=None, bmel=False, count=None, **kwargs):
         if kds is None:
             kds = KneeDataset()
-            kds.knees = [knee for knee in kds.knees if all(knee.path[k] for k in ['IMG_TSE', 'DESS2TSE']) and knee.path['BMELT'] is None]
-        super().__init__(kds, img_size=img_size)
+            kds.knees = [knee for knee in kds.knees if all(knee.path[k] for k in ['IMG_TSE', 'DESS2TSE', 'BONE_TSE'])]
+            if bmel:
+                kds.knees = [knee for knee in kds.knees if knee.path['BMELT'] is not None]
+            else:
+                kds.knees = [knee for knee in kds.knees if knee.path['BMELT'] is None]
+            if count:
+                random.shuffle(kds.knees)
+                kds.knees = kds.knees[:count]
+        super().__init__(kds, img_size=config['img_size'], bonemask=config['task'] == 'bone_premask', **kwargs)
         
     def __getitem__(self, ndx):
         slc = super().__getitem__(ndx)
         ret = {}
-        ret['gt_image'] = slc['IMG_TSE']
-        ret['cond_image'] = slc['DESS2TSE']
-        # ret['path'] = f"knee{slc['knee_ndx']:04d}_slc{slc['slc_ndx']:02d}.png"
-        ret['path'] = f"{slc['id']}.png"
+        ret['tse'] = slc['IMG_TSE']
+        ret['dess'] = slc['DESS2TSE']
+        ret['bone'] = slc['BONE_TSE']
+        ret['bone_nodil'] = slc['BONE_TSE_nodil']
         ret['id'] = slc['id']
         return ret
+    
+
+class InpaintBoneDataset(SliceDataset):
+    def __init__(self, config, kds=None, bmel=False, count=None, **kwargs):
+        if kds is None:
+            kds = KneeDataset()
+            kds.knees = [knee for knee in kds.knees if all(knee.path[k] for k in ['IMG_TSE', 'DESS2TSE', 'BONE_TSE'])]
+            if bmel:
+                kds.knees = [knee for knee in kds.knees if knee.path['BMELT'] is not None]
+            else:
+                kds.knees = [knee for knee in kds.knees if knee.path['BMELT'] is None]
+            if count:
+                random.shuffle(kds.knees)
+                kds.knees = kds.knees[:count]
+        super().__init__(kds, img_size=config['img_size'], bonemask=config['task'] == 'bone_premask')
+        
+    def __getitem__(self, ndx):
+        slc = super().__getitem__(ndx)
+        ret = {}
+        ret['tse'] = slc['IMG_TSE']
+        ret['dess'] = slc['DESS2TSE']
+        ret['bone'] = slc['BONE_TSE']
+        ret['id'] = slc['id']
+        return ret
+    
 
 class InpaintTSEDataset(SliceDataset):
     def __init__(self, img_size=256, mask_config={}, **kwargs):
@@ -242,3 +275,4 @@ class InpaintTSEDataset(SliceDataset):
         ret['mask'] = mask
         ret['path'] = f"knee{slc['knee_ndx']:04d}_slc{slc['slc_ndx']:02d}.png"
         return ret
+    
