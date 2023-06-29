@@ -14,6 +14,7 @@ from datetime import datetime
 import os
 
 from data.dataset import FastSliceDataset
+from data.dataset import DESS2TSEDataset
 from models.network import MyNetwork
 from models.guided_diffusion_modules.unet import UNet
 from models.model import Palette, MyPalette
@@ -221,6 +222,12 @@ class Colorize(nn.Module):
         # if self.config['task'] == 'inpaint_bone', 'inpaint_roi':...
         self.mask = batch['mask'].to(self.device)
         self.id = batch['path']
+        # self.x = batch['tse'].to(self.device)
+        # self.y = batch['tse'].to(self.device)
+        # # if self.config['task'] == 'inpaint_bone', 'inpaint_roi':...
+        # self.mask = (batch['bone'] > 0).to(torch.float32).to(self.device)
+        # self.mask_nodil = (batch['bone_nodil'] > 0).to(torch.float32).to(self.device)
+        # self.id = batch['id']
 
     def train_step(self):
         self.net.train()
@@ -244,6 +251,7 @@ if __name__ == '__main__':
     os.makedirs(savepath, mode=0o755, exist_ok=True)
 
     ds = FastSliceDataset()
+    # ds = DESS2TSEDataset(config=CONFIG)
     dl = DataLoader(ds, batch_size=CONFIG['batch_size'], shuffle=True, drop_last=True)
     c = Colorize(device='cuda', config=CONFIG)
 
