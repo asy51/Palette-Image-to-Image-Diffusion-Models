@@ -19,7 +19,7 @@
                 "name": ["data.dataset", "InpaintTSEDataset"],
                 "args":{
                     "mask_config": {
-                        "mask_mode": "hybrid"
+                        "mask_mode": "bone"
                     }
                 } 
             },
@@ -46,7 +46,7 @@
                 "name": "InpaintTSEDataset",
                 "args":{
                     "mask_config": {
-                        "mask_mode": "center"
+                        "mask_mode": "bone"
                     }
                 }
             },

@@ -1,3 +1,4 @@
+from IPython import embed
 import torch.utils.data as data
 from torchvision import transforms
 from PIL import Image
@@ -7,6 +8,7 @@ import numpy as np
 
 from .util.mask import (bbox2mask, brush_stroke_mask, get_irregular_mask, random_bbox, random_cropping_bbox)
 
+from ptoa.data.filter import clean_knees
 from ptoa.data.knee_monai import SliceDataset, KneeDataset
 import monai.transforms as MT
 
@@ -192,9 +194,11 @@ class DESS2TSEDataset(SliceDataset):
         return ret
 
 class InpaintTSEDataset(SliceDataset):
-    def __init__(self, img_size=256, mask_config={}, **kwargs):
+    def __init__(self, img_size=256, mask_config={'mask_mode': 'bone'}, **kwargs):
         kds = KneeDataset()
-        kds.knees = [knee for knee in kds.knees if all(knee.path[k] for k in ['IMG_TSE', 'DESS2TSE'])][:5]
+        kds.knees = [k for k in kds.knees if k.base in clean_knees]
+
+        kds.knees = [knee for knee in kds.knees if all(knee.path[k] for k in ['IMG_TSE', 'DESS2TSE', 'BONE_TSE'])]
         super().__init__(kds, img_size=img_size)
 
         self.mask_config = mask_config
@@ -224,17 +228,19 @@ class InpaintTSEDataset(SliceDataset):
     
     def __getitem__(self, ndx):
         slc = super().__getitem__(ndx)
+        ret = {}
         img = slc['IMG_TSE'] * 2 - 1
-        mask = self.get_mask()
-        # mask = torch.zeros([1, *self.image_size])
-        # mask[self.image_size[0]//4:self.image_size[0]*3//4,
-        #      self.image_size[1]//4:self.image_size[1]*3//4] = 1
+        if self.mask_mode == 'bone':
+            mask = (slc['BONE_TSE'] > 0).to(torch.uint8)
+        else:
+            mask = self.get_mask()
         cond_image = img*(1. - mask) + mask*torch.randn_like(img)
         mask_img = img*(1. - mask) + mask
 
-        slc['gt_image'] = img
-        slc['cond_image'] = cond_image
-        slc['mask_image'] = mask_img
-        slc['mask'] = mask
-        slc['path'] = f"knee{slc['knee_ndx']:04d}_slc{slc['slc_ndx']:02d}.png"
-        return slc
+        ret['gt_image'] = img
+        ret['cond_image'] = cond_image
+        ret['mask_image'] = mask_img
+        ret['mask'] = mask
+        ret['path'] = f"{slc['id']}.png"
+        return ret
+    
