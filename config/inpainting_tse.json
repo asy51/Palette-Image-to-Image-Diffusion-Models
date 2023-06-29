@@ -1,6 +1,6 @@
 {
     "name": "inpainting_tse",
-    "gpu_ids": [1],
+    "gpu_ids": [0],
     "seed" : -1,
     "finetune_norm": false,
 
