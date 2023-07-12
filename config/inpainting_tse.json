@@ -18,6 +18,7 @@
             "which_dataset": { 
                 "name": ["data.dataset", "InpaintTSEDataset"],
                 "args":{
+                    "knees": "EMPTY",
                     "mask_config": {
                         "mask_mode": "bone"
                     }

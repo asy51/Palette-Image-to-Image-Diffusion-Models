@@ -194,12 +194,17 @@ class DESS2TSEDataset(SliceDataset):
         return ret
 
 class InpaintTSEDataset(SliceDataset):
-    def __init__(self, img_size=256, mask_config={'mask_mode': 'bone'}, **kwargs):
-        kds = KneeDataset()
-        kds.knees = [k for k in kds.knees if k.base in clean_knees]
+    def __init__(self, slices=None, knees=None, img_size=256, mask_config={'mask_mode': 'bone'}, **kwargs):
+        if slices is not None:
+            self.slices = slices
+        else:
+            if knees is None:
+                kds = KneeDataset()
+                kds.knees = [k for k in kds.knees if k.base in clean_knees]
 
-        kds.knees = [knee for knee in kds.knees if all(knee.path[k] for k in ['IMG_TSE', 'DESS2TSE', 'BONE_TSE'])]
-        super().__init__(kds, img_size=img_size)
+                kds.knees = [knee for knee in kds.knees if all(knee.path[k] for k in ['IMG_TSE', 'DESS2TSE', 'BONE_TSE'])]
+                knees = kds.knees
+            super().__init__(knees, img_size=img_size)
 
         self.mask_config = mask_config
         self.mask_mode = self.mask_config['mask_mode']
@@ -241,6 +246,7 @@ class InpaintTSEDataset(SliceDataset):
         ret['cond_image'] = cond_image
         ret['mask_image'] = mask_img
         ret['mask'] = mask
+        ret['id'] = slc['id']
         ret['path'] = f"{slc['id']}.png"
         return ret
     
