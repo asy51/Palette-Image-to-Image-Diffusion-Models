@@ -8,7 +8,7 @@ import numpy as np
 
 from .util.mask import (bbox2mask, brush_stroke_mask, get_irregular_mask, random_bbox, random_cropping_bbox)
 
-from ptoa.data.filter import clean_knees
+from ptoa.data.filter import clean_nobmel_knees
 from ptoa.data.knee_monai import SliceDataset, KneeDataset
 import monai.transforms as MT
 
@@ -200,7 +200,7 @@ class InpaintTSEDataset(SliceDataset):
         else:
             if knees is None:
                 kds = KneeDataset()
-                kds.knees = [k for k in kds.knees if k.base in clean_knees]
+                kds.knees = [k for k in kds.knees if k.base in clean_nobmel_knees]
 
                 kds.knees = [knee for knee in kds.knees if all(knee.path[k] for k in ['IMG_TSE', 'DESS2TSE', 'BONE_TSE'])]
                 knees = kds.knees
@@ -246,7 +246,7 @@ class InpaintTSEDataset(SliceDataset):
         ret['cond_image'] = cond_image
         ret['mask_image'] = mask_img
         ret['mask'] = mask
-        ret['id'] = slc['id']
-        ret['path'] = f"{slc['id']}.png"
+        ret['id'] = f"{slc['base']}-{slc['slc_ndx']}"
+        ret['path'] = f"{ret['id']}.png"
         return ret
     
