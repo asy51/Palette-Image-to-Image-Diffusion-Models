@@ -10,6 +10,7 @@ from .util.mask import (bbox2mask, brush_stroke_mask, get_irregular_mask, random
 
 from ptoa.data.filter import clean_nobmel_knees
 from ptoa.data.knee_monai import SliceDataset, KneeDataset
+from ptoa.data.fastmri_dataset import FastSliceDataset, FastTranslateDataset
 import monai.transforms as MT
 
 IMG_EXTENSIONS = [
@@ -193,60 +194,105 @@ class DESS2TSEDataset(SliceDataset):
         ret['path'] = f"knee{slc['knee_ndx']:04d}_slc{slc['slc_ndx']:02d}.png"
         return ret
 
-class InpaintTSEDataset(SliceDataset):
-    def __init__(self, slices=None, knees=None, img_size=256, mask_config={'mask_mode': 'bone'}, **kwargs):
-        if slices is not None:
-            self.slices = slices
-        else:
-            if knees is None:
-                kds = KneeDataset()
-                kds.knees = [k for k in kds.knees if k.base in clean_nobmel_knees]
-
-                kds.knees = [knee for knee in kds.knees if all(knee.path[k] for k in ['IMG_TSE', 'DESS2TSE', 'BONE_TSE'])]
-                knees = kds.knees
-            super().__init__(knees, img_size=img_size)
-
-        self.mask_config = mask_config
-        self.mask_mode = self.mask_config['mask_mode']
-        self.image_size = (img_size, img_size)
-
-    def get_mask(self):
-        if self.mask_mode == 'bbox':
-            mask = bbox2mask(self.image_size, random_bbox())
-        elif self.mask_mode == 'center':
-            h, w = self.image_size
-            mask = bbox2mask(self.image_size, (h//4, w//4, h//2, w//2))
-        elif self.mask_mode == 'irregular':
-            mask = get_irregular_mask(self.image_size)
-        elif self.mask_mode == 'free_form':
-            mask = brush_stroke_mask(self.image_size)
-        elif self.mask_mode == 'hybrid':
-            regular_mask = bbox2mask(self.image_size, random_bbox())
-            irregular_mask = brush_stroke_mask(self.image_size, )
-            mask = regular_mask | irregular_mask
-        elif self.mask_mode == 'file':
-            pass
-        else:
-            raise NotImplementedError(
-                f'Mask mode {self.mask_mode} has not been implemented.')
-        return torch.from_numpy(mask).permute(2,0,1)
     
+class FastInpaintDataset(FastSliceDataset):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.df = self.df[(self.df['acquisition'] == 'CORPDFS_FBK') & (self.df['split'] == 'train') & (self.df['label'] != 'Bone- Subchondral edema')]
+
     def __getitem__(self, ndx):
         slc = super().__getitem__(ndx)
-        ret = {}
-        img = slc['IMG_TSE'] * 2 - 1
-        if self.mask_mode == 'bone':
-            mask = (slc['BONE_TSE'] > 0).to(torch.uint8)
-        else:
-            mask = self.get_mask()
+        ret_row = self.df.iloc[ndx]
+
+        img = slc['img'] * 2 - 1
+        mask = torch.from_numpy(bbox2mask(img.shape[-2:],
+                    random_bbox(
+                        img_shape=img.shape[-2:],
+                        max_bbox_shape=(80, 80),
+                        max_bbox_delta=60,
+                        min_margin=50,
+                    )
+                )).to(torch.uint8).squeeze(-1).unsqueeze(0)
         cond_image = img*(1. - mask) + mask*torch.randn_like(img)
         mask_img = img*(1. - mask) + mask
 
-        ret['gt_image'] = img
-        ret['cond_image'] = cond_image
-        ret['mask_image'] = mask_img
-        ret['mask'] = mask
-        ret['id'] = f"{slc['base']}-{slc['slc_ndx']}"
-        ret['path'] = f"{ret['id']}.png"
+        ret = {
+            'gt_image': img,
+            'cond_image': cond_image,
+            'mask_image': mask_img,
+            'mask': mask,
+            'path': f"{ret_row['file']}-{int(float(ret_row['slice']))}.png",
+        }
+
         return ret
     
+class FastTranslateDataset(FastTranslateDataset):
+    def __getitem__(self, ndx):
+        slc = super().__getitem__(ndx)
+        ret_row = self.df.iloc[ndx]
+
+        ret = {
+            'gt_image': slc['img_fs'] * 2 - 1,
+            'cond_image': slc['img_nofs'] * 2 - 1,
+            'path': f"{ret_row['file_fs']}-{int(float(ret_row['slice']))}.png",
+        }
+
+        return ret
+    
+
+# class InpaintTSEDataset(SliceDataset):
+#     def __init__(self, slices=None, knees=None, img_size=256, mask_config={'mask_mode': 'bone'}, **kwargs):
+#         if slices is not None:
+#             self.slices = slices
+#         else:
+#             if knees is None:
+#                 kds = KneeDataset()
+#                 kds.knees = [k for k in kds.knees if k.base in clean_nobmel_knees]
+
+#                 kds.knees = [knee for knee in kds.knees if all(knee.path[k] for k in ['IMG_TSE', 'DESS2TSE', 'BONE_TSE'])]
+#                 knees = kds.knees
+#             super().__init__(knees, img_size=img_size)
+
+#         self.mask_config = mask_config
+#         self.mask_mode = self.mask_config['mask_mode']
+#         self.image_size = (img_size, img_size)
+
+#     def get_mask(self):
+#         if self.mask_mode == 'bbox':
+#             mask = bbox2mask(self.image_size, random_bbox())
+#         elif self.mask_mode == 'center':
+#             h, w = self.image_size
+#             mask = bbox2mask(self.image_size, (h//4, w//4, h//2, w//2))
+#         elif self.mask_mode == 'irregular':
+#             mask = get_irregular_mask(self.image_size)
+#         elif self.mask_mode == 'free_form':
+#             mask = brush_stroke_mask(self.image_size)
+#         elif self.mask_mode == 'hybrid':
+#             regular_mask = bbox2mask(self.image_size, random_bbox())
+#             irregular_mask = brush_stroke_mask(self.image_size, )
+#             mask = regular_mask | irregular_mask
+#         elif self.mask_mode == 'file':
+#             pass
+#         else:
+#             raise NotImplementedError(
+#                 f'Mask mode {self.mask_mode} has not been implemented.')
+#         return torch.from_numpy(mask).permute(2,0,1)
+    
+#     def __getitem__(self, ndx):
+#         slc = super().__getitem__(ndx)
+#         ret = {}
+#         img = slc['IMG_TSE'] * 2 - 1
+#         if self.mask_mode == 'bone':
+#             mask = (slc['BONE_TSE'] > 0).to(torch.uint8)
+#         else:
+#             mask = self.get_mask()
+#         cond_image = img*(1. - mask) + mask*torch.randn_like(img)
+#         mask_img = img*(1. - mask) + mask
+
+#         ret['gt_image'] = img
+#         ret['cond_image'] = cond_image
+#         ret['mask_image'] = mask_img
+#         ret['mask'] = mask
+#         ret['id'] = slc['id']
+#         ret['path'] = f"{slc['id']}.png"
+#         return ret

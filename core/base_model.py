@@ -51,11 +51,11 @@ class BaseModel():
             for key, value in train_log.items():
                 self.logger.info('{:5s}: {}\t'.format(str(key), value))
             
-            if self.epoch % self.opt['train']['save_checkpoint_epoch'] == 0:
+            if self.epoch == 1 or self.epoch % self.opt['train']['save_checkpoint_epoch'] == 0:
                 self.logger.info('Saving the self at the end of epoch {:.0f}'.format(self.epoch))
                 self.save_everything()
 
-            if self.epoch % self.opt['train']['val_epoch'] == 0:
+            if self.epoch == 1 or self.epoch % self.opt['train']['val_epoch'] == 0:
                 self.logger.info("\n\n\n------------------------------Validation Start------------------------------")
                 if self.val_loader is None:
                     self.logger.warning('Validation stop where dataloader is None, Skip it.')
