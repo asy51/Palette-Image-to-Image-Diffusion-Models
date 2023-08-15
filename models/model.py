@@ -89,7 +89,7 @@ class Palette(BaseModel):
             ret_result.append(self.gt_image[idx].detach().float().cpu())
 
             ret_path.append('Cond_{}'.format(self.path[idx]))
-            ret_result.append(self.gt_image[idx].detach().float().cpu())
+            ret_result.append(self.cond_image[idx].detach().float().cpu())
 
             ret_path.append('Process_{}'.format(self.path[idx]))
             ret_result.append(self.visuals[idx::self.batch_size].detach().float().cpu())
