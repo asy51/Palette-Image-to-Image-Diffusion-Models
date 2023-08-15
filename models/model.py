@@ -88,6 +88,9 @@ class Palette(BaseModel):
             ret_path.append('GT_{}'.format(self.path[idx]))
             ret_result.append(self.gt_image[idx].detach().float().cpu())
 
+            ret_path.append('Cond_{}'.format(self.path[idx]))
+            ret_result.append(self.gt_image[idx].detach().float().cpu())
+
             ret_path.append('Process_{}'.format(self.path[idx]))
             ret_result.append(self.visuals[idx::self.batch_size].detach().float().cpu())
             
@@ -104,7 +107,7 @@ class Palette(BaseModel):
     def train_step(self):
         self.netG.train()
         self.train_metrics.reset()
-        for train_data in tqdm.tqdm(self.phase_loader):
+        for train_data in tqdm.tqdm(self.phase_loader, desc=f"train E{self.epoch}"):
             self.set_input(train_data)
             self.optG.zero_grad()
             loss = self.netG(self.gt_image, self.cond_image, mask=self.mask)
@@ -132,7 +135,7 @@ class Palette(BaseModel):
         self.netG.eval()
         self.val_metrics.reset()
         with torch.no_grad():
-            for val_data in tqdm.tqdm(self.val_loader):
+            for val_data in tqdm.tqdm(self.val_loader, desc=f"val E{self.epoch}"):
                 self.set_input(val_data)
                 if self.opt['distributed']:
                     if self.task in ['inpainting','uncropping']:
@@ -165,7 +168,7 @@ class Palette(BaseModel):
         self.netG.eval()
         self.test_metrics.reset()
         with torch.no_grad():
-            for phase_data in tqdm.tqdm(self.phase_loader):
+            for phase_data in tqdm.tqdm(self.phase_loader, desc=f"test E{self.epoch}"):
                 self.set_input(phase_data)
                 if self.opt['distributed']:
                     if self.task in ['inpainting','uncropping']:
