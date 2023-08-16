@@ -1,6 +1,6 @@
 {
     "name": "colorization_fastmri",
-    "gpu_ids": [0,1,2,3],
+    "gpu_ids": [0, 1, 2, 3, 4, 5],
     "seed" : -1,
     "finetune_norm": false,
 
@@ -20,7 +20,7 @@
                 "name": ["data.dataset", "FastTranslateDataset"]
             },
             "dataloader":{
-                "validation_split": 2,
+                "validation_split": 8,
                 "args":{
                     "batch_size": 16,
                     "num_workers": 16,
