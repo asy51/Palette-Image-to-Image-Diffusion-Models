@@ -8,7 +8,6 @@ import numpy as np
 
 from .util.mask import (bbox2mask, brush_stroke_mask, get_irregular_mask, random_bbox, random_cropping_bbox)
 
-from ptoa.data.filter import clean_nobmel_knees
 from ptoa.data.knee_monai import SliceDataset, KneeDataset
 from ptoa.data.fastmri_dataset import FastSliceDataset, FastTranslateDataset
 import monai.transforms as MT
@@ -180,8 +179,8 @@ class ColorizationDataset(data.Dataset):
         return len(self.flist)
 
 
-class DESS2TSEDataset(SliceDataset):
-    def __init__(self, img_size=256, **kwargs):
+class MoonCometTranslateDataset(SliceDataset):
+    def __init__(self, img_size=320, **kwargs):
         kds = KneeDataset()
         kds.knees = [knee for knee in kds.knees if all(knee.path[k] for k in ['IMG_TSE', 'DESS2TSE'])]
         super().__init__(kds, img_size=img_size)
@@ -191,10 +190,39 @@ class DESS2TSEDataset(SliceDataset):
         ret = {}
         ret['gt_image'] = slc['IMG_TSE'] * 2 - 1
         ret['cond_image'] = slc['DESS2TSE'] * 2 - 1
-        ret['path'] = f"knee{slc['knee_ndx']:04d}_slc{slc['slc_ndx']:02d}.png"
+        ret['path'] = f"knee{slc['base']}-slc{slc['slc_ndx']:02d}.png"
         return ret
 
-    
+class MoonCometInpaintDataset(SliceDataset):
+    def __init__(self, img_size=320, **kwargs):
+        kds = KneeDataset()
+        kds.knees = [knee for knee in kds.knees if all(knee.path[k] for k in ['IMG_TSE'])]
+        super().__init__(kds, img_size=img_size)
+
+    def __getitem__(self, ndx):
+        slc = super().__getitem__(ndx)
+        img = slc['IMG_TSE'] * 2 - 1
+        mask = torch.from_numpy(bbox2mask(img.shape[-2:],
+                    random_bbox(
+                        img_shape=img.shape[-2:],
+                        max_bbox_shape=(80, 80),
+                        max_bbox_delta=60,
+                        min_margin=50,
+                    )
+                )).to(torch.uint8).squeeze(-1).unsqueeze(0)
+        cond_image = img*(1. - mask) + mask*torch.randn_like(img)
+        mask_img = img*(1. - mask) + mask
+
+        ret = {
+            'gt_image': img,
+            'cond_image': cond_image,
+            'mask_image': mask_img,
+            'mask': mask,
+            'path': f"knee{slc['base']}-slc{slc['slc_ndx']:02d}.png",
+        }
+
+        return ret
+
 class FastInpaintDataset(FastSliceDataset):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
