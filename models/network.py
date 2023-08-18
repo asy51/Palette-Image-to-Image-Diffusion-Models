@@ -174,6 +174,8 @@ def make_beta_schedule(schedule, n_timestep, linear_start=1e-6, linear_end=1e-2,
         alphas = alphas / alphas[0]
         betas = 1 - alphas[1:] / alphas[:-1]
         betas = betas.clamp(max=0.999)
+    elif schedule == 'geometric':
+        betas = np.geomspace(linear_start, linear_end, n_timestep, dtype=np.float64)
     else:
         raise NotImplementedError(schedule)
     return betas

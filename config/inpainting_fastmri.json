@@ -1,6 +1,6 @@
 {
     "name": "inpainting_fastmri",
-    "gpu_ids": [0,1],
+    "gpu_ids": [0,1,2,3,4,5,6,7],
     "seed" : -1,
     "finetune_norm": false,
 
@@ -16,39 +16,33 @@
     "datasets": {
         "train": { 
             "which_dataset": { 
-                "name": ["data.dataset", "FastInpaintDataset"],
-                "args":{
-                    "df_query": "healthy"
-                } 
+                "name": ["data.dataset", "FastInpaintDataset"]
             },
             "dataloader":{
-                "validation_split": 2,
+                "validation_split": 0.15,
                 "args":{
-                    "batch_size": 8,
+                    "batch_size": 16,
                     "num_workers": 16,
                     "shuffle": true,
                     "pin_memory": true,
                     "drop_last": true
                 },
                 "val_args":{
-                    "batch_size": 1,
-                    "num_workers": 4,
-                    "shuffle": false,
+                    "batch_size": 16,
+                    "num_workers": 16,
+                    "shuffle": true,
                     "pin_memory": true,
-                    "drop_last": false
+                    "drop_last": true
                 }
             }
         },
         "test": { 
             "which_dataset": {
-                "name": "FastInpaintDataset",
-                "args":{
-                    "df_query": "healthy"
-                } 
+                "name": "FastInpaintDataset"
             },
             "dataloader":{
                 "args":{
-                    "batch_size": 8,
+                    "batch_size": 16,
                     "num_workers": 16,
                     "pin_memory": true
                 }
@@ -100,14 +94,14 @@
                     },
                     "beta_schedule": {
                         "train": {
-                            "schedule": "linear",
+                            "schedule": "quad",
                             "n_timestep": 2000,
                            
                             "linear_start": 1e-6,
                             "linear_end": 0.01
                         },
                         "test": {
-                            "schedule": "linear",
+                            "schedule": "quad",
                             "n_timestep": 1000,
                             "linear_start": 1e-4,
                             "linear_end": 0.09

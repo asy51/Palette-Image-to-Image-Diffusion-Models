@@ -9,7 +9,7 @@ import numpy as np
 from .util.mask import (bbox2mask, brush_stroke_mask, get_irregular_mask, random_bbox, random_cropping_bbox)
 
 from ptoa.data.knee_monai import SliceDataset, KneeDataset
-from ptoa.data.fastmri_dataset import FastSliceDataset, FastTranslateDataset
+from ptoa.data.fastmri_dataset import FastSliceDataset, FastTranslateDataset, CacheFastSliceDataset
 import monai.transforms as MT
 
 IMG_EXTENSIONS = [
@@ -227,6 +227,7 @@ class FastInpaintDataset(FastSliceDataset):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.df = self.df[(self.df['acquisition'] == 'CORPDFS_FBK') & (self.df['split'] == 'train') & (self.df['label'] != 'Bone- Subchondral edema')]
+        self.df = self.df[self.df['label'].isna()]
 
     def __getitem__(self, ndx):
         slc = super().__getitem__(ndx)
