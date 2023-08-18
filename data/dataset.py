@@ -196,7 +196,7 @@ class MoonCometTranslateDataset(SliceDataset):
 class MoonCometInpaintDataset(SliceDataset):
     def __init__(self, img_size=320, **kwargs):
         kds = KneeDataset()
-        kds.knees = [knee for knee in kds.knees if all(knee.path[k] for k in ['IMG_TSE'])]
+        kds.knees = [knee for knee in kds.knees if all(knee.path[k] for k in ['IMG_TSE', 'BONE_TSE'])]
         super().__init__(kds, img_size=img_size)
 
     def __getitem__(self, ndx):
