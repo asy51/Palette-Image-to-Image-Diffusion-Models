@@ -161,6 +161,7 @@ class Palette(BaseModel):
                 for key, value in self.get_current_visuals(phase='val').items():
                     self.writer.add_images(key, value)
                 self.writer.save_images(self.save_current_results())
+                break # use first batch only
         return self.val_metrics.result()
 
     def test(self):
