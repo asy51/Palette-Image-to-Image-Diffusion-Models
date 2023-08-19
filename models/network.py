@@ -142,20 +142,26 @@ def extract(a, t, x_shape=(1,1,1,1)):
 def _warmup_beta(linear_start, linear_end, n_timestep, warmup_frac):
     betas = linear_end * np.ones(n_timestep, dtype=np.float64)
     warmup_time = int(n_timestep * warmup_frac)
-    betas[:warmup_time] = np.linspace(
-        linear_start, linear_end, warmup_time, dtype=np.float64)
+    betas[:n_timestep-warmup_time] = np.linspace(
+        linear_start, linear_end, n_timestep-warmup_time, dtype=np.float64)
     return betas
 
 def make_beta_schedule(schedule, n_timestep, linear_start=1e-6, linear_end=1e-2, cosine_s=8e-3):
     if schedule == 'quad':
         betas = np.linspace(linear_start ** 0.5, linear_end ** 0.5,
                             n_timestep, dtype=np.float64) ** 2
+    if schedule == 'cube':
+        betas = np.linspace(linear_start ** (1/3), linear_end ** (1/3),
+                            n_timestep, dtype=np.float64) ** 3
     elif schedule == 'linear':
         betas = np.linspace(linear_start, linear_end,
                             n_timestep, dtype=np.float64)
     elif schedule == 'warmup10':
         betas = _warmup_beta(linear_start, linear_end,
                              n_timestep, 0.1)
+    elif schedule == 'warmup25':
+        betas = _warmup_beta(linear_start, linear_end,
+                             n_timestep, 0.25)
     elif schedule == 'warmup50':
         betas = _warmup_beta(linear_start, linear_end,
                              n_timestep, 0.5)
