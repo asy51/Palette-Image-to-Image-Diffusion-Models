@@ -150,7 +150,7 @@ def make_beta_schedule(schedule, n_timestep, linear_start=1e-6, linear_end=1e-2,
     if schedule == 'quad':
         betas = np.linspace(linear_start ** 0.5, linear_end ** 0.5,
                             n_timestep, dtype=np.float64) ** 2
-    if schedule == 'cube':
+    elif schedule == 'cube':
         betas = np.linspace(linear_start ** (1/3), linear_end ** (1/3),
                             n_timestep, dtype=np.float64) ** 3
     elif schedule == 'linear':
