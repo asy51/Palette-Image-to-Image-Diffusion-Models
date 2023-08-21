@@ -196,6 +196,24 @@ class MoonCometTranslateDataset(SliceDataset):
         ret['cond_image'] = slc['DESS2TSE'] * 2 - 1
         ret['path'] = f"knee{slc['base']}-slc{slc['slc_ndx']:02d}.png"
         return ret
+    
+class MoonCometTranslateBMELDataset(SliceDataset):
+    def __init__(self, img_size=320, **kwargs):
+        kds = KneeDataset()
+        with open('/home/yua4/ptoa/ptoa/data/clean_bmel.txt', 'r') as f:
+            clean_bmel = [l.strip() for l in f.readlines()]
+        kds.knees = [knee for knee in kds.knees if all(knee.path[k] for k in ['IMG_TSE', 'DESS2TSE', 'BMELT']) and knee.base in clean_bmel]
+        super().__init__(kds, img_size=img_size)
+        self.slices = [d for d in self.slices if d['BMELT'][d['BMELT'] != 3].sum() > 0]
+        
+    def __getitem__(self, ndx):
+        slc = super().__getitem__(ndx)
+        ret = {}
+        ret['gt_image'] = slc['IMG_TSE'] * 2 - 1
+        ret['cond_image'] = slc['DESS2TSE'] * 2 - 1
+        ret['bmel'] = slc['BMELT'] * 2 - 1
+        ret['path'] = f"knee{slc['base']}-slc{slc['slc_ndx']:02d}.png"
+        return ret
 
 class MoonCometInpaintDataset(SliceDataset):
     def __init__(self, img_size=320, clean=True, bmel=False, **kwargs):
