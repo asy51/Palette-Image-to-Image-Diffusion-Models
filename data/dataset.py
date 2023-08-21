@@ -6,8 +6,9 @@ import os
 import torch
 import numpy as np
 import pandas as pd
+import random
 
-from .util.mask import (bbox2mask, brush_stroke_mask, get_irregular_mask, random_bbox, random_cropping_bbox)
+from .util.mask import (bbox2mask, brush_stroke_mask, get_irregular_mask, random_bbox, random_cropping_bbox, segmentation_to_bbox)
 
 from ptoa.data.knee_monai import SliceDataset, KneeDataset
 from ptoa.data.fastmri_dataset import FastSliceDataset, FastTranslateDataset, CacheFastSliceDataset
@@ -210,7 +211,7 @@ class MoonCometInpaintDataset(SliceDataset):
             kds.knees = [knee for knee in kds.knees if all(knee.path[k] for k in ['IMG_TSE', 'BONE_TSE']) and knee.base in clean_knees]
         else:
             kds.knees = [knee for knee in kds.knees if all(knee.path[k] for k in ['IMG_TSE', 'BONE_TSE'])]
-        super().__init__(kds, img_size=img_size)
+        super().__init__(kds, img_size=img_size, **kwargs)
 
     def __getitem__(self, ndx):
         slc = super().__getitem__(ndx)
@@ -231,6 +232,71 @@ class MoonCometInpaintDataset(SliceDataset):
             'cond_image': cond_image,
             'mask_image': mask_img,
             'mask': mask,
+            'path': f"knee{slc['base']}-slc{slc['slc_ndx']:02d}.png",
+        }
+
+        return ret
+
+class MoonCometInpaintBMELDataset(SliceDataset):
+    def __init__(self, img_size=320, clean=True, bmel=False, **kwargs):
+        kds = KneeDataset()
+        if clean:
+            clean_knees = []
+            if bmel is True or bmel is None:
+                with open('/home/yua4/ptoa/ptoa/data/clean_bmel.txt', 'r') as f:
+                    clean_knees += [l.strip() for l in f.readlines()]
+            if bmel is False or bmel is None:
+                with open('/home/yua4/ptoa/ptoa/data/clean_nobmel.txt', 'r') as f:
+                    clean_knees += [l.strip() for l in f.readlines()]
+            kds.knees = [knee for knee in kds.knees if all(knee.path[k] for k in ['IMG_TSE', 'BONE_TSE', 'BMELT']) and knee.base in clean_knees]
+        else:
+            kds.knees = [knee for knee in kds.knees if all(knee.path[k] for k in ['IMG_TSE', 'BONE_TSE', 'BMELT'])]
+        super().__init__(kds, img_size=img_size, **kwargs)
+
+    def __getitem__(self, ndx):
+        slc = super().__getitem__(ndx)
+        img = slc['IMG_TSE'] * 2 - 1
+        bmel = slc['BMELT']
+        bmel[bmel == 3] = 0 # remove patella bmel
+        if bmel.sum() <= 0:
+            mask = torch.from_numpy(bbox2mask(img.shape[-2:],
+                    random_bbox(
+                        img_shape=img.shape[-2:],
+                        max_bbox_shape=(80, 80),
+                        max_bbox_delta=60,
+                        min_margin=50,
+                    )
+                )).to(torch.uint8).squeeze(-1).unsqueeze(0)
+        else:    
+            bbox = segmentation_to_bbox(bmel[0])
+            bbox = random.choice(list(bbox.values())) # choose randomly if there are more than one
+            bbox = [bbox[1], bbox[0], bbox[3], bbox[2]] # bbox2mask uses (top, left, height, width)
+            # min 50x50
+            if bbox[2] < 50:
+                add_height = 50 - bbox[2]
+                bbox[0] -= add_height // 2
+                bbox[2] = 50
+            if bbox[3] < 50:
+                add_width = 50 - bbox[3]
+                bbox[1] -= add_width // 2
+                bbox[3] = 50
+            # pad by 10 each side
+            bbox[0] -= 10
+            bbox[2] += 20
+            bbox[1] -= 10
+            bbox[3] += 20
+
+            mask = torch.from_numpy(bbox2mask(img.shape[-2:], bbox)).to(torch.uint8).squeeze(-1).unsqueeze(0)
+
+        cond_image = img*(1. - mask) + mask*torch.randn_like(img)
+        mask_img = img*(1. - mask) + mask
+
+        ret = {
+            'gt_image': img,
+            'cond_image': cond_image,
+            'mask_image': mask_img,
+            'mask': mask,
+            'bmel': bmel,
             'path': f"knee{slc['base']}-slc{slc['slc_ndx']:02d}.png",
         }
 

@@ -1,5 +1,6 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import math
+import torch
 
 import cv2
 import numpy as np
@@ -336,3 +337,36 @@ def get_irregular_mask(img_shape, area_ratio_range=(0.15, 0.5), **kwargs):
         mask = random_irregular_mask(img_shape, **kwargs)
 
     return mask
+
+def segmentation_to_bbox(segmentation_map):
+    # Get the unique class labels in the segmentation map, excluding the background label (0)
+    class_labels = torch.unique(segmentation_map)
+    class_labels = class_labels[class_labels != 0]
+
+    # Initialize a dictionary to store bounding boxes for each class
+    bbox_dict = {}
+
+    # Loop through each class label
+    for class_label in class_labels:
+        # Create a mask for the current class
+        class_mask = (segmentation_map == class_label)
+
+        # Get the indices where the class mask is non-zero
+        rows, cols = torch.nonzero(class_mask, as_tuple=True)
+
+        # Check if there are any non-zero entries (the class is present)
+        if rows.size(0) > 0 and cols.size(0) > 0:
+            # Get the minimum and maximum row and column indices
+            xmin = cols.min().item()
+            xmax = cols.max().item()
+            ymin = rows.min().item()
+            ymax = rows.max().item()
+
+            # Compute the height and width of the bounding box
+            height = ymax - ymin + 1
+            width = xmax - xmin + 1
+
+            # Add the bounding box to the dictionary
+            bbox_dict[class_label.item()] = [xmin, ymin, width, height]
+
+    return bbox_dict
