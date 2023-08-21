@@ -5,6 +5,7 @@ from PIL import Image
 import os
 import torch
 import numpy as np
+import pandas as pd
 
 from .util.mask import (bbox2mask, brush_stroke_mask, get_irregular_mask, random_bbox, random_cropping_bbox)
 
@@ -238,8 +239,8 @@ class MoonCometInpaintDataset(SliceDataset):
 class FastInpaintDataset(FastSliceDataset):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.df = self.df[(self.df['acquisition'] == 'CORPDFS_FBK') & (self.df['split'] == 'train') & (self.df['label'] != 'Bone- Subchondral edema')]
-        self.df = self.df[self.df['label'].isna()]
+        self.df = self.df[(self.df['acquisition'] == 'CORPDFS_FBK')] # & (self.df['split'] == 'train') & (self.df['label'] != 'Bone- Subchondral edema')]
+        # self.df = self.df[self.df['label'].isna()]
 
     def __getitem__(self, ndx):
         slc = super().__getitem__(ndx)
@@ -254,6 +255,35 @@ class FastInpaintDataset(FastSliceDataset):
                         min_margin=50,
                     )
                 )).to(torch.uint8).squeeze(-1).unsqueeze(0)
+        cond_image = img*(1. - mask) + mask*torch.randn_like(img)
+        mask_img = img*(1. - mask) + mask
+
+        ret = {
+            'gt_image': img,
+            'cond_image': cond_image,
+            'mask_image': mask_img,
+            'mask': mask,
+            'path': f"{ret_row['file']}-{int(float(ret_row['slice']))}.png",
+        }
+
+        return ret
+
+class FastInpaintBMELDataset(FastSliceDataset):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.df = self.df[(self.df['acquisition'] == 'CORPDFS_FBK')] # & (self.df['split'] == 'train') & (self.df['label'] != 'Bone- Subchondral edema')]
+        # self.df = self.df[self.df['label'].isna()]
+    
+    def __getitem__(self, ndx):
+        slc = super(FastInpaintBMELDataset, self).__getitem__(ndx)
+        ret_row = self.df.iloc[ndx]
+        if pd.isna(ret_row['label']):
+            return None
+        img = slc['img'] * 2 - 1
+        mask = torch.zeros((1, self.img_size, self.img_size))
+        # mask[:,row['x']:320-row['width'],:] = 1
+        flipped_y = int(self.img_size - ret_row['y'] - ret_row['height'])
+        mask[:,flipped_y:flipped_y+int(ret_row['height']),int(ret_row['x']):int(ret_row['x']+ret_row['width'])] = 1
         cond_image = img*(1. - mask) + mask*torch.randn_like(img)
         mask_img = img*(1. - mask) + mask
 
