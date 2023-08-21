@@ -177,12 +177,14 @@ class ColorizationDataset(data.Dataset):
 
     def __len__(self):
         return len(self.flist)
-
-
+            
+    
 class MoonCometTranslateDataset(SliceDataset):
     def __init__(self, img_size=320, **kwargs):
         kds = KneeDataset()
-        kds.knees = [knee for knee in kds.knees if all(knee.path[k] for k in ['IMG_TSE', 'DESS2TSE'])]
+        with open('/home/yua4/ptoa/ptoa/data/clean_nobmel.txt', 'r') as f:
+            clean_nobmel = [l.strip() for l in f.readlines()]
+        kds.knees = [knee for knee in kds.knees if all(knee.path[k] for k in ['IMG_TSE', 'DESS2TSE']) and knee.base in clean_nobmel]
         super().__init__(kds, img_size=img_size)
         
     def __getitem__(self, ndx):
@@ -194,9 +196,19 @@ class MoonCometTranslateDataset(SliceDataset):
         return ret
 
 class MoonCometInpaintDataset(SliceDataset):
-    def __init__(self, img_size=320, **kwargs):
+    def __init__(self, img_size=320, clean=True, bmel=False, **kwargs):
         kds = KneeDataset()
-        kds.knees = [knee for knee in kds.knees if all(knee.path[k] for k in ['IMG_TSE', 'BONE_TSE'])]
+        if clean:
+            clean_knees = []
+            if bmel is True or bmel is None:
+                with open('/home/yua4/ptoa/ptoa/data/clean_bmel.txt', 'r') as f:
+                    clean_knees += [l.strip() for l in f.readlines()]
+            if bmel is False or bmel is None:
+                with open('/home/yua4/ptoa/ptoa/data/clean_nobmel.txt', 'r') as f:
+                    clean_knees += [l.strip() for l in f.readlines()]
+            kds.knees = [knee for knee in kds.knees if all(knee.path[k] for k in ['IMG_TSE', 'BONE_TSE']) and knee.base in clean_knees]
+        else:
+            kds.knees = [knee for knee in kds.knees if all(knee.path[k] for k in ['IMG_TSE', 'BONE_TSE'])]
         super().__init__(kds, img_size=img_size)
 
     def __getitem__(self, ndx):
