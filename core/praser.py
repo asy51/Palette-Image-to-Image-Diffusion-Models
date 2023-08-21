@@ -149,6 +149,40 @@ def parse(args):
             shutil.copy(name, opt['path']['code'])
     return dict_to_nonedict(opt)
 
+def parse_test(args):
+    json_str = ''
+    with open(args.config, 'r') as f:
+        for line in f:
+            line = line.split('//')[0] + '\n'
+            json_str += line
+    opt = json.loads(json_str, object_pairs_hook=OrderedDict)
+
+    ''' replace the config context using args '''
+    opt['phase'] = args.phase
+    if args.gpu_ids is not None:
+        opt['gpu_ids'] = [int(id) for id in args.gpu_ids.split(',')]
+    if args.batch is not None:
+        opt['datasets'][opt['phase']]['dataloader']['args']['batch_size'] = args.batch
+ 
+    ''' set cuda environment '''
+    if len(opt['gpu_ids']) > 1:
+        opt['distributed'] = True
+    else:
+        opt['distributed'] = False
+
+    ''' update name '''
+    if args.debug:
+        opt['name'] = 'debug_{}'.format(opt['name'])
+    elif opt['finetune_norm']:
+        opt['name'] = 'finetune_{}'.format(opt['name'])
+    else:
+        opt['name'] = '{}_{}'.format(opt['phase'], opt['name'])
+
+    ''' debug mode '''
+    if 'debug' in opt['name']:
+        opt['train'].update(opt['debug'])
+        
+    return dict_to_nonedict(opt)
 
 
 
