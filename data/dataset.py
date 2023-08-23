@@ -320,6 +320,58 @@ class MoonCometInpaintBMELDataset(SliceDataset):
 
         return ret
 
+
+class MoonCometBoneInpaintDataset(SliceDataset):
+    def __init__(self, img_size=320, dess=False, clean=True, bmel=False, **kwargs):
+        self.dess = dess
+        kds = KneeDataset()
+        kds.knees = [knee for knee in kds.knees if all(knee.path[k] for k in ['IMG_TSE', 'BONE_TSE'])]
+        if dess:
+            kds.knees = [knee for knee in kds.knees if knee.path['DESS2TSE']]
+        if bmel:
+            kds.knees = [knee for knee in kds.knees if knee.path['BMELT']]
+        if clean:
+            clean_knees = []
+            if bmel is True or bmel is None:
+                with open('/home/yua4/ptoa/ptoa/data/clean_bmel.txt', 'r') as f:
+                    clean_knees += [l.strip() for l in f.readlines()]
+            if bmel is False or bmel is None:
+                with open('/home/yua4/ptoa/ptoa/data/clean_nobmel.txt', 'r') as f:
+                    clean_knees += [l.strip() for l in f.readlines()]
+            kds.knees = [knee for knee in kds.knees if knee.base in clean_knees]
+        # kds.knees = kds.knees[:10]
+        super().__init__(kds, img_size=img_size, **kwargs)
+        # for slc in self.slices:
+        #     slc['BMELT'][slc['BMELT'] == 3] = 0
+        # self.slices = [slc for slc in self.slices if slc['BMELT'].sum() > 0]
+
+    def __getitem__(self, ndx):
+        slc = super().__getitem__(ndx)
+        ret = {}
+        img = slc['IMG_TSE'] * 2 - 1
+        mask = (slc['BONE_TSE'] > 0).to(torch.uint8)
+        cond_image = img*(1. - mask) + mask*torch.randn_like(img)
+        mask_img = img*(1. - mask) + mask
+        if 'BMELT' in slc:
+            bmel = slc['BMELT']
+            bmel[bmel == 3] = 0 # remove patella bmel
+        else:
+            print('hmm?')
+            bmel = torch.zeros((1, self.img_size, self.img_size))
+        if self.dess:
+            img = torch.concat((img, slc['DESS2TSE']), dim=-3)
+            cond_image = torch.concat((cond_image, slc['DESS2TSE']), dim=-3)
+
+        ret['gt_image'] = img
+        ret['cond_image'] = cond_image
+        ret['mask_image'] = mask_img
+        ret['mask'] = mask
+        ret['bmel'] = bmel
+        ret['path'] = f"{slc['base']}_slc{slc['slc_ndx']:02d}.png"
+        return ret
+
+
+
 class FastInpaintDataset(FastSliceDataset):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
