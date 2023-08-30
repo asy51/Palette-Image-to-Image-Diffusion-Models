@@ -194,7 +194,7 @@ class MoonCometTranslateDataset(SliceDataset):
         ret = {}
         ret['gt_image'] = slc['IMG_TSE'] * 2 - 1
         ret['cond_image'] = slc['DESS2TSE'] * 2 - 1
-        ret['path'] = f"knee{slc['base']}-slc{slc['slc_ndx']:02d}.png"
+        ret['path'] = f"{slc['base']}-slc{slc['slc_ndx']:02d}.png"
         return ret
     
 class MoonCometTranslateBMELDataset(SliceDataset):
@@ -212,7 +212,7 @@ class MoonCometTranslateBMELDataset(SliceDataset):
         ret['gt_image'] = slc['IMG_TSE'] * 2 - 1
         ret['cond_image'] = slc['DESS2TSE'] * 2 - 1
         ret['bmel'] = slc['BMELT'] * 2 - 1
-        ret['path'] = f"knee{slc['base']}-slc{slc['slc_ndx']:02d}.png"
+        ret['path'] = f"{slc['base']}-slc{slc['slc_ndx']:02d}.png"
         return ret
 
 class MoonCometInpaintDataset(SliceDataset):
@@ -250,7 +250,7 @@ class MoonCometInpaintDataset(SliceDataset):
             'cond_image': cond_image,
             'mask_image': mask_img,
             'mask': mask,
-            'path': f"knee{slc['base']}-slc{slc['slc_ndx']:02d}.png",
+            'path': f"{slc['base']}-slc{slc['slc_ndx']:02d}.png",
         }
 
         return ret
@@ -315,30 +315,31 @@ class MoonCometInpaintBMELDataset(SliceDataset):
             'mask_image': mask_img,
             'mask': mask,
             'bmel': bmel,
-            'path': f"knee{slc['base']}-slc{slc['slc_ndx']:02d}.png",
+            'path': f"{slc['base']}-slc{slc['slc_ndx']:02d}.png",
         }
 
         return ret
 
 
 class MoonCometBoneInpaintDataset(SliceDataset):
-    def __init__(self, img_size=320, dess=False, clean=True, bmel=False, **kwargs):
+    def __init__(self, img_size=320, knees=None, dess=False, clean=True, bmel=False, **kwargs):
         self.dess = dess
-        kds = KneeDataset()
-        kds.knees = [knee for knee in kds.knees if all(knee.path[k] for k in ['IMG_TSE', 'BONE_TSE'])]
-        if dess:
-            kds.knees = [knee for knee in kds.knees if knee.path['DESS2TSE']]
-        if bmel:
-            kds.knees = [knee for knee in kds.knees if knee.path['BMELT']]
-        if clean:
-            clean_knees = []
-            if bmel is True or bmel is None:
-                with open('/home/yua4/ptoa/ptoa/data/clean_bmel.txt', 'r') as f:
-                    clean_knees += [l.strip() for l in f.readlines()]
-            if bmel is False or bmel is None:
-                with open('/home/yua4/ptoa/ptoa/data/clean_nobmel.txt', 'r') as f:
-                    clean_knees += [l.strip() for l in f.readlines()]
-            kds.knees = [knee for knee in kds.knees if knee.base in clean_knees]
+        if knees is None:
+            kds = KneeDataset()
+            kds.knees = [knee for knee in kds.knees if all(knee.path[k] for k in ['IMG_TSE', 'BONE_TSE'])]
+            if dess:
+                kds.knees = [knee for knee in kds.knees if knee.path['DESS2TSE']]
+            if bmel:
+                kds.knees = [knee for knee in kds.knees if knee.path['BMELT']]
+            if clean:
+                clean_knees = []
+                if bmel is True or bmel is None:
+                    with open('/home/yua4/ptoa/ptoa/data/clean_bmel.txt', 'r') as f:
+                        clean_knees += [l.strip() for l in f.readlines()]
+                if bmel is False or bmel is None:
+                    with open('/home/yua4/ptoa/ptoa/data/clean_nobmel.txt', 'r') as f:
+                        clean_knees += [l.strip() for l in f.readlines()]
+                kds.knees = [knee for knee in kds.knees if knee.base in clean_knees]
         # kds.knees = kds.knees[:10]
         super().__init__(kds, img_size=img_size, **kwargs)
         # for slc in self.slices:
@@ -356,7 +357,6 @@ class MoonCometBoneInpaintDataset(SliceDataset):
             bmel = slc['BMELT']
             bmel[bmel == 3] = 0 # remove patella bmel
         else:
-            print('hmm?')
             bmel = torch.zeros((1, self.img_size, self.img_size))
         if self.dess:
             img = torch.concat((img, slc['DESS2TSE']), dim=-3)
@@ -367,7 +367,7 @@ class MoonCometBoneInpaintDataset(SliceDataset):
         ret['mask_image'] = mask_img
         ret['mask'] = mask
         ret['bmel'] = bmel
-        ret['path'] = f"{slc['base']}_slc{slc['slc_ndx']:02d}.png"
+        ret['path'] = f"{slc['base']}-slc{slc['slc_ndx']:02d}.png"
         return ret
 
 
