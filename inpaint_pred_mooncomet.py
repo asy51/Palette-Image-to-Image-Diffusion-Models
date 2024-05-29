@@ -11,37 +11,47 @@ import os
 import core.praser as Praser
 from models.network import Network
 
-DEVICE = 'cuda:1'
+DEVICE_NUM=2
+DEVICE = f'cuda:{DEVICE_NUM}'
 EPOCH = 440
 EMA = '_ema'
 EMA = ''
 ROOT = 'experiments/'
 ROOT += 'train_boneinpainting_fastmri_e4_quad_230822_211302/'
-SAVE = ROOT+'preds_440/'
+SAVE = ROOT+'preds_440_ema_all_comet-patient-ccf-004-20210927-knee/'
 os.makedirs(SAVE,mode=0o755, exist_ok=True)
 print(f"{SAVE} created")
 
-args = Namespace(config=ROOT + 'config.json', phase='test', gpu_ids=None, batch=6, debug=False)
+args = Namespace(config=ROOT + 'config.json', phase='test', gpu_ids=None, batch=24, debug=False)
 opt = Praser.parse_test(args)
 
 model_args = opt["model"]["which_networks"][0]["args"]
 model = Network(**model_args)
-embed()
 model_pth = Path(ROOT) / 'checkpoint' / f'{EPOCH}_Network{EMA}.pth'
 state_dict = torch.load(model_pth)
 model.load_state_dict(state_dict, strict=False)
 model.to(DEVICE)
 model.set_new_noise_schedule(device=DEVICE, phase='test')
 
-ds = MoonCometBoneInpaintDataset(clean=True, bmel=True)
-ds.slices = [d for d in ds.slices if d['BMELT'][d['BMELT'] != 3].sum() > 0]
-for slc in ds.slices:
-    slc['BMELT'][slc['BMELT'] == 3] = 0
-    slc['BMELT'][slc['BMELT'] > 0] = 1
+ds = MoonCometBoneInpaintDataset(clean=True, bmel=False)
+div = len(ds) // 3
+ndx_start = div * DEVICE_NUM
+ndx_end = div * (DEVICE_NUM+1)
+if DEVICE_NUM == 2:
+    ndx_end = None
+ds.slices = ds.slices[ndx_start:ndx_end]
+print(len(ds), ndx_start, ndx_end)
+# ds.slices = [d for d in ds.slices if d['BMELT'][d['BMELT'] != 3].sum() > 0]
+# for slc in ds.slices:
+#     slc['BMELT'][slc['BMELT'] == 3] = 0
+#     slc['BMELT'][slc['BMELT'] > 0] = 1
 
 dl = DataLoader(ds, batch_size=args.batch)
 ret = {}
 for batch in tqdm.tqdm(dl):
+    if all(os.path.exists(SAVE + path.replace('png','pt')) for path in batch['path']):
+        print(f'all {batch["path"]} exists')
+        continue
     batch_size = len(batch['path'])
     model.output, model.visuals = model.restoration(
         batch['cond_image'].to(DEVICE),
